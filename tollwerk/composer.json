@@ -1,0 +1,15 @@
+{
+    "name": "tollwerk/gsales2",
+    "description": "tollwerk gSales extensions",
+    "require": {
+        "michelf/php-markdown": "^1.6"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Joschi Kuphal",
+            "email": "joschi@tollwerk.de"
+        }
+    ],
+    "minimum-stability": "dev"
+}
