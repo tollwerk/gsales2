@@ -107,6 +107,9 @@ $arrPDFConfig['label_order']				= 'Bestellung';
 $arrPDFConfig['label_orderconfirm']			= 'Hiermit bestellen wir gemäß des voranstehenden Angebots %s die mandatorischen sowie alle nicht gestrichenen, optionalen Positionen. Die im Angebot dargestellten Liefer- und Zahlungsbedingungen sowie die Allgemeinen Geschäftsbedingungen (AGB) der tollwerk GmbH wurden zur Kenntnis genommen und erhalten hiermit mein / unser Einverständnis.';
 $arrPDFConfig['label_orderdate']			= 'Ort, Datum';
 $arrPDFConfig['label_ordersignature']		= 'Stempel / Unterschrift';
+$arrPDFConfig['label_cancelled_at']			= 'Storniert am %s';
+$arrPDFConfig['label_cancelled_bc']			= ' mit der Begründung: %s';
+$arrPDFConfig['label_total']				= 'Gesamtbetrag';
 
 $arrPDFConfig['column_pos_width']			= 8;
 $arrPDFConfig['column_amount_width']		= 12;

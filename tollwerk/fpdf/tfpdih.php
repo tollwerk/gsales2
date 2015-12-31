@@ -49,7 +49,519 @@ class TFPDIH extends TFPDI
 	public $wt_DataInfo;//parsed string data info
 	public $wt_DataExtraInfo;//data extra INFO
 	public $wt_TempData; //some temporary info
+	/**
+	 * PDF configuration
+	 *
+	 * @var array
+	 */
+	public $pdfCfg;
+	/**
+	 * PDF document data
+	 *
+	 * @var array
+	 */
+	public $pdfData;
+	/**
+	 * Output header
+	 *
+	 * @var boolean
+	 */
+	public $booOutputHeader = true;
+	/**
+	 * Vertical offset of the page number on the first page
+	 *
+	 * @var int
+	 */
+	public $firstPageCountYPos;
+	/**
+	 * Vertical offset of the page number on the following pages
+	 *
+	 * @var int
+	 */
+	public $followingPageCountYPos;
+	/**
+	 * Print a development grid into the pages
+	 *
+	 * @var bool
+	 */
+	public $showDevelopmentGrid = false;
 
+	/**
+	 * Pass in the PDF configuration
+	 *
+	 * @param array $arrConfig PDF configuration
+	 */
+	public function passConfiguration($arrConfig)
+	{
+		$this->pdfCfg = $arrConfig;
+	}
+
+	/**
+	 * Pass in the PDF data
+	 *
+	 * @param array $arrData PDF data
+	 */
+	public function passGsalesData($arrData)
+	{
+		$this->pdfData = $arrData;
+	}
+
+	/**
+	 * Include the page template (if enabled)
+	 */
+	public function IncludeTemplate() {
+		if ($this->pdfCfg['use_stationery_pdf']) {
+			$this->setSourceFile($this->pdfCfg['stationery_pdf_file']);
+			$intTempplateId = $this->ImportPage(1);
+			$this->useTemplate($intTempplateId, 0);
+		}
+	}
+
+	public function PrintDevelopmentGrid() {
+		if ($this->showDevelopmentGrid) {
+			$this->SetXY(0, 0);
+			$this->SetFont($this->pdfCfg['font'], '', 4);
+			for ($i=0;$i<300;$i+=3) {
+				$this->SetXY($i,3); $this->Cell(3,3,$i);
+				$this->SetXY(3,$i); $this->Cell(3,3,$i);
+			}
+		}
+	}
+
+	/**
+	 * Print a header line
+	 *
+	 * @param string $label Label key
+	 * @param string $value Value
+	 * @param int $offsetY Vertical offset
+	 * @param int $lineHeight Line height
+	 */
+	public function HeaderLine($label, $value, &$offsetY, $lineHeight = 5)
+	{
+		$this->SetXY($this->pdfCfg['offsetX'] + $this->pdfCfg['column_unit_offset'], $offsetY);
+		$this->SetFont($this->pdfCfg['font'], 'I', $this->pdfCfg['font_size_small']);
+		$this->Cell($this->pdfCfg['column_price_width'], 0, $this->pdfText($this->pdfCfg[$label]), 0, 0, 'R');
+
+		$this->SetXY($this->pdfCfg['offsetX'] + $this->pdfCfg['column_unit_offset'] + $this->pdfCfg['column_price_width'] + $this->pdfCfg['column_price_gap'],
+			$offsetY);
+		$this->SetFont($this->pdfCfg['font'], '', $this->pdfCfg['font_size_small']);
+		$this->Cell($this->pdfCfg['column_price_width'], 0, $this->pdfText($value), 0, 0, 'R');
+		$offsetY += $lineHeight;
+	}
+
+	/**
+	 * Print the document info block
+	 *
+	 * @param int $ys Vertical offset
+	 * @param int $lh Line height
+	 */
+	public function DocInfo($ys, $lh)
+	{
+
+		if ($this->PageNo() == 1) {
+
+			// Kunden-Nr. Zeile (nur ausgeben wenn eine Nummer vorhanden ist )
+			if (trim($this->pdfData['base']['customerno']) != '') {
+				$this->HeaderLine('label_customerno', $this->pdfData['base']['customerno'], $ys, $lh);
+			}
+
+			// Job-Nr. Zeile (nur ausgeben wenn eine Nummer vorhanden ist )
+			if (trim($this->pdfData['base']['custom1']) != '') {
+				$this->HeaderLine('label_jobno', str_pad($this->pdfData['base']['custom1'], 3, '0', STR_PAD_LEFT),
+					$ys, $lh);
+			}
+
+			// Lieferanten-Nr. Zeile (nur ausgeben wenn eine Nummer vorhanden ist )
+			if (trim($this->pdfData['customerdata']['custom1']) != '') {
+				$this->HeaderLine('label_supplierno', $this->pdfData['customerdata']['custom1'], $ys, $lh);
+			}
+
+			// Bestell-Nr. Zeile (nur ausgeben wenn eine Nummer vorhanden ist )
+			if (trim($this->pdfData['base']['custom2']) != '') {
+				$this->HeaderLine('label_orderno', $this->pdfData['base']['custom2'], $ys, $lh);
+			}
+		}
+
+		// Dokumenttypabhängige Zeilen
+		if ($this->pdfData['type'] == 'invoices') {
+
+			// Rechnungs-Nr. Zeile
+			$this->HeaderLine('label_invoiceno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+
+			if ($this->PageNo() == 1) {
+
+				// Lieferdatum Zeile
+				if ($this->pdfData['base']['deliverydate'] != '0000-00-00 00:00:00') {
+					$this->HeaderLine('label_deliverydate',
+						date('d.m.Y', strtotime($this->pdfData['base']['deliverydate'])), $ys, $lh);
+				}
+			}
+		}
+
+		// Angebots-Nr. Zeile
+		if ($this->pdfData['type'] == 'offers') {
+			$this->HeaderLine('label_offerno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+		}
+
+		// Lieferschein-Nr. Zeile
+		if ($this->pdfData['type'] == 'deliveries') {
+			$this->HeaderLine('label_deliveryno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+		}
+
+		// Auftrags-Nr. Zeile
+		if ($this->pdfData['type'] == 'sales') {
+			$this->HeaderLine('label_saleno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+		}
+
+		// Gutschrifts-Nr. Zeile
+		if ($this->pdfData['type'] == 'refunds') {
+			$this->HeaderLine('label_refundno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+		}
+
+		// Autor
+		if ($this->PageNo() == 1) {
+			$this->HeaderLine('label_author', $this->GetAuthorName($this->pdfData['base']['user_id']), $ys, $lh);
+
+			// Seitenanzahl Zeile
+			// TODO
+//				$this->HeaderLine('label_page')
+//
+//				$this->SetXY(140, $ys);
+//				$this->SetFont($this->pdfCfg['font'], 'B', $this->pdfCfg['font_size']);
+//				$this->Cell(25, 0, $this->pdfText($this->pdfCfg['label_page']), 0);
+
+			// Variable definieren für Ersetzung nach der Erstellung der Seiten
+
+			$this->firstPageCountYPos = $ys;
+
+			// Else: Following pages
+		} else {
+			$this->followingPageCountYPos = $ys;
+		}
+	}
+
+	/**
+	 * Query an author name from the database
+	 *
+	 * @param int $author Author ID
+	 * @return string Author name
+	 */
+	public function GetAuthorName($author)
+	{
+		$dbParams = $GLOBALS['db'][0];
+		$dbConnection = mysqli_connect($dbParams['host'], $dbParams['user'], $dbParams['password'],
+			$dbParams['database']);
+		$authorResult = mysqli_query($dbConnection, 'SELECT fullname FROM user WHERE id = ' . $author . ' LIMIT 1');
+		if ($authorResult && mysqli_num_rows($authorResult)) {
+			$authorRecord = mysqli_fetch_assoc($authorResult);
+			$author = $authorRecord['fullname'];
+		}
+		return $author;
+	}
+
+	/**
+	 * Print the position table headlines
+	 *
+	 * @param int $intY Vertical offset
+	 * @param bool $booShowDiscountCol
+	 */
+	function PositionTableHeadlines($intY, $booShowDiscountCol = true)
+	{
+		$this->SetFont($this->pdfCfg['font'], 'I', $this->pdfCfg['font_size_small']);
+
+		// Position column
+		if ($this->pdfCfg['show_colpos']) {
+			$this->setXY($this->pdfCfg['offsetX'], $intY);
+			$this->Cell($this->pdfCfg['column_pos_width'] - 1, '', $this->pdfText($this->pdfCfg['label_position']),
+				0, 0);
+		}
+
+		$this->setXY($this->pdfCfg['offsetX'] + $this->pdfCfg['column_pos_width'], $intY);
+		$this->Cell($this->pdfCfg['column_amount_width'] - 1, '', $this->pdfText($this->pdfCfg['label_amount']), 0,
+			0, 'C');
+
+		$this->setXY($this->pdfCfg['offsetX'] + $this->pdfCfg['column_pos_width'] + $this->pdfCfg['column_amount_width'],
+			$intY);
+		$this->Cell(10, '', $this->pdfText($this->pdfCfg['label_description']), 0, 0);
+
+		// Bei lieferscheinen keinen rabatt, steuer, preise eindrucken
+		if ($this->pdfData['type'] != 'deliveries') {
+
+			// Wenn ein Rabatt gezeigt werden soll
+			if ($booShowDiscountCol) {
+				$this->setXY($this->pdfCfg['offsetX'] + $this->pdfCfg['column_discount_offset'], $intY);
+				$this->Cell($this->pdfCfg['column_discount_width'], '',
+					$this->pdfText($this->pdfCfg['label_discount']), 0, 0, 'R');
+			}
+
+			// Überprüfen ob die MwSt. Spalte trotz deaktivierung angezeigt werden muss da Positionen mit MwSt. vorhanden sind
+			if (false == $this->pdfCfg['showTax']) {
+				$booTaxedPos = false;
+				foreach ((array)$this->pdfData['pos'] as $key => $value) {
+					if ($value['tax'] > 0) {
+						$booTaxedPos = true;
+					}
+				}
+			}
+
+			$booTaxedPos = false;
+
+			if ($this->pdfCfg['showTax'] || $booTaxedPos == true) {
+				$this->setXY($this->pdfCfg['offsetX'] + $this->pdfCfg['column_discount_offset'], $intY);
+				$this->Cell($this->pdfCfg['column_discount_width'], '', $this->pdfText($this->pdfCfg['label_tax']),
+					0, 0, 'R');
+			}
+
+			$this->setXY($this->pdfCfg['offsetX'] + $this->pdfCfg['column_unit_offset'], $intY);
+			$this->Cell($this->pdfCfg['column_price_width'], '', $this->pdfText($this->pdfCfg['label_unitprice']),
+				0, 0, 'R');
+
+			$this->setXY($this->pdfCfg['offsetX'] + $this->pdfCfg['column_unit_offset'] + $this->pdfCfg['column_price_width'] + $this->pdfCfg['column_price_gap'],
+				$intY);
+			$this->Cell($this->pdfCfg['column_price_width'], '', $this->pdfText($this->pdfCfg['label_amountprice']),
+				0, 0, 'R');
+		}
+
+		$this->Ln(4);
+		$tmpY = $this->GetY();
+		$this->printHorizontalLine($tmpY);
+		$this->Ln(2);
+	}
+
+	/**
+	 * Format a standard currency value
+	 *
+	 * @param float $value Value
+	 * @param bool $booDisplayMoreDecimals Display more decimals
+	 * @return string Formatted value
+	 */
+	public function GetFormatedStandardCurrency($value, $booDisplayMoreDecimals = false)
+	{
+
+		$intDisplayDecimals = 2;
+		if ($booDisplayMoreDecimals) {
+			$intDisplayDecimals = $this->pdfCfg['displayDecimals'];
+		}
+
+		if ($this->pdfCfg['currency_pre'] == true) {
+			return $this->pdfCfg['currency'] . $this->pdfCfg['currency_space'] . gsDecimalTrim(number_format($value,
+				$intDisplayDecimals, ',', '.'), ',');
+		} else {
+			return gsDecimalTrim(number_format($value, $intDisplayDecimals, ',', '.'),
+				',') . $this->pdfCfg['currency_space'] . $this->pdfCfg['currency'];
+		}
+	}
+
+	/**
+	 * Format a foreign currency value
+	 *
+	 * @param float $value Value
+	 * @param array $arrInvoiceBase Invoice data
+	 * @param bool $booDisplayMoreDecimals Display more decimals
+	 * @return mixed Formatted value
+	 */
+	public function GetFormatedForeignCurrency($value, $arrInvoiceBase, $booDisplayMoreDecimals = false)
+	{
+		$strCurrencySymbol = $arrInvoiceBase['curr_symbol'];
+
+		$booCurrencySpacing = false;
+		if ($arrInvoiceBase['curr_spacing'] == 1) {
+			$booCurrencySpacing = true;
+		}
+
+		$booCurrencyBeforeNumber = false;
+		if ($arrInvoiceBase['curr_before_number'] == 1) {
+			$booCurrencyBeforeNumber = true;
+		}
+
+
+		$intDisplayDecimals = 2;
+		if ($booDisplayMoreDecimals) {
+			$intDisplayDecimals = $this->pdfCfg['displayDecimals'];
+		}
+		return gsForeignCurrency($value, $strCurrencySymbol, true, $booCurrencySpacing, $booCurrencyBeforeNumber,
+			$intDisplayDecimals);
+	}
+
+	/**
+	 * Replace the Euro symbol
+	 *
+	 * @param string $string String
+	 * @return string String with replaced Euro symbols
+	 */
+	public function EuroReplace($string)
+	{
+		return str_replace('€', chr(128), $string);
+	}
+
+	/**
+	 * Normalize text for output
+	 *
+	 * @param string $string Text
+	 * @return string Normalized text
+	 */
+	function PdfText($string)
+	{
+		$string = str_replace('&nbsp;', ' ', $string); // html_entity decode funktioniert nicht ... wieso?
+		$retString = false;
+
+		if (function_exists('iconv')) {
+			$retString = iconv('utf8', 'cp1252', html_entity_decode($string, ENT_QUOTES));
+			if ($retString == false) {
+				$retString = iconv('utf-8', 'cp1252', html_entity_decode($string, ENT_QUOTES));
+			} // auf manchen systemen korrekterweise utf-8 anstelle von utf8
+		}
+
+		if ($retString === false) {
+			$retString = utf8_decode(html_entity_decode($this->EuroReplace($string), ENT_QUOTES));
+		}
+
+		$markdown = $this->PrepareMarkdown($retString);
+//			$withoutTags = strip_tags($markdown, '<b><strong><a><ul><ol><li>');
+		$withoutTags = strip_tags($markdown, '<b><strong><a>');
+		return trim($withoutTags);
+	}
+
+	/**
+	 * Prepare and parse a MarkDown string
+	 *
+	 * @param string $str Markdown string
+	 * @return string HTML
+	 */
+	public function PrepareMarkdown($str)
+	{
+		$markdown = preg_replace("%\R%", "\r\n", trim($str));
+		$listMode = false;
+		$emptyLine = false;
+		$markdownList = array();
+		foreach (explode("\r\n", $markdown) as $line) {
+
+			if ($listMode) {
+				if (!preg_match("%^\s*\*\s%", $line)) {
+					$listMode = false;
+
+					if (!$emptyLine) {
+						$markdownList[] = '';
+					}
+				}
+
+			} elseif (preg_match("%^\s*\*\s%", $line)) {
+
+				if (!$emptyLine) {
+					$markdownList[] = '';
+				}
+
+				$listMode = true;
+			}
+			$markdownList[] = $line;
+			$emptyLine = !strlen(trim($line));
+		}
+
+		$markdown = implode("\r\n", $markdownList);
+		$markdown = \Michelf\Markdown::defaultTransform($markdown);
+		$markdown = preg_replace(array(
+			"%\R<ul>%",
+			"%\R<ol>%",
+			"%<ul>\R<li>%",
+			"%<ol>\R<li>%",
+			"%</li>\R</ul>%",
+			"%</li>\R</ol>%"
+		), array('<ul>', '<ol>', '<ul><li>', '<ol><li>', '</li></ul>', '</li></ol>'), $markdown);
+
+		return $markdown;
+	}
+
+	/**
+	 * Wrap words and calculate the number of lines
+	 *
+	 * @param string $text Text
+	 * @param int $maxwidth Maximum number of chars
+	 * @return int Number of lines
+	 */
+	function WordWrap($text, $maxwidth)
+	{
+
+		$text = trim($text);
+		if ($text === '') {
+			return 0;
+		}
+		$space = $this->GetStringWidth(' ');
+		$lines = explode("\n", $text);
+		$text = '';
+		$count = 0;
+
+		foreach ($lines as $line) {
+			$words = preg_split('/ +/', $line);
+			$width = 0;
+			foreach ($words as $word) {
+				$wordwidth = $this->GetStringWidth($word);
+				if ($width + $wordwidth + $space <= $maxwidth) {
+					$width += $wordwidth + $space;
+					$text .= $word . ' ';
+				} else {
+					$width = $wordwidth + $space;
+					$text = rtrim($text) . "\n" . $word . ' ';
+					$count++;
+				}
+			}
+			$text = rtrim($text) . "\n";
+			$count++;
+		}
+		$text = rtrim($text);
+		return $count;
+	}
+
+	/**
+	 * Copy pages from the source template to the current document
+	 *
+	 * @param string $source Source file
+	 * @param int $from Start page
+	 * @param int $to End page
+	 */
+	public function CopyPages($source, $from, $to)
+	{
+		$this->setSourceFile($source);
+		for ($page = $from; $page <= $to; ++$page) {
+			$this->AddPage();
+			$this->useTemplate($this->importPage($page), 0);
+		}
+	}
+
+	/**
+	 * Print a paragraph
+	 *
+	 * @param string $str Paragraph
+	 * @param int $width Width
+	 */
+	public function PrintParagraph($str, $width)
+	{
+		$endY = $this->GetY() + $this->pdfCfg['paragraphSpace'];
+
+		#$postText = str_replace('&nbsp;',' ',$var_array['base']['vars_i_post_txt']); // bugfix für währung mit leerzeichen ausgeben ...
+
+		$intRowCount = $this->WordWrap($this->PdfText($str), $width);
+		if (($intRowCount * $this->pdfCfg['paragraphSpace']) + $endY > $this->pdfCfg['limitToY']) { // Checken ob der kommende Text noch auf die Seite passt
+			$this->AddPage();
+			$endY = $this->pdfCfg['restartAtY'];
+		}
+
+		$this->SetXY($this->pdfCfg['offsetX'], $endY);
+		$this->SetFont($this->pdfCfg['font'], '', $this->pdfCfg['font_size']);
+		$this->MultiCellTag($width, $this->pdfCfg['paragraphSpace'], $this->PdfText($str), 0, 'L');
+//			$this->MultiCell($width, $this->pdfCfg['paragraphSpace'], $this->PdfText($str), 0, 'L');
+
+	}
+
+	/**
+	 * Print a full width line
+	 *
+	 * @param int $y Vertical position
+	 */
+	public function PrintHorizontalLine($y)
+	{
+		$this->SetLineWidth(0.1);
+		$this->Line($this->pdfCfg['offsetX'], $y, $this->pdfCfg['offsetX'] + $this->pdfCfg['fullwidth'], $y);
+	}
 
 	public function _wt_Reset_Datas()
 	{
@@ -190,33 +702,33 @@ class TFPDIH extends TFPDI
 
 		// Run through the remaining tag sections
 		foreach ($aDataInfo as $key => $val) {
-			$s					= $val['text'];
-			$tag				= &$val['tag'];
+			$s = $val['text'];
+			$tag = &$val['tag'];
 
 			// Test if this is a paragraph
-			$bParagraph			= false;
+			$bParagraph = false;
 			if (($s == "\t") && ($tag == 'pparg')) {
-				$bParagraph		= true;
-				$s				= "\t"; //place instead a TAB
+				$bParagraph = true;
+				$s = "\t"; //place instead a TAB
 			}
 
 			// Get the total string length
-			$s_length			= strlen($s);
+			$s_length = strlen($s);
 
-			$i					= 0; // From where is the string remain
-			$j					= 0; // Until where is the string good to copy -- leave this == 1->> copy at least one character!!!
-			$s_width			= 0; // String width
-			$last_sep			= -1; // Last separator position
-			$last_sepwidth		= 0;
-			$last_sepch_width	= 0;
-			$ante_last_sep		= -1; // Ante last separator position
-			$spaces				= 0;
+			$i = 0; // From where is the string remain
+			$j = 0; // Until where is the string good to copy -- leave this == 1->> copy at least one character!!!
+			$s_width = 0; // String width
+			$last_sep = -1; // Last separator position
+			$last_sepwidth = 0;
+			$last_sepch_width = 0;
+			$ante_last_sep = -1; // Ante last separator position
+			$spaces = 0;
 
 			// Parse the whole string
 			while ($i < $s_length) {
 
 				// Get a single character
-				$c				= $s[$i];
+				$c = $s[$i];
 
 				// Is this an explicit line break?
 				if ($c == "\n") {
@@ -241,7 +753,7 @@ class TFPDIH extends TFPDI
 				}
 
 				// Determine the character width
-				$char_width		= $fw[$tag]['w'][$c] * $fw[$tag]['s'];
+				$char_width = $fw[$tag]['w'][$c] * $fw[$tag]['s'];
 
 				// If it's a separator
 				if (is_int(strpos(' ,.:;', $c))) {
