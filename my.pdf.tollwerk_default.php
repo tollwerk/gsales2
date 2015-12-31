@@ -4,21 +4,9 @@ $locale = setlocale(LC_ALL, 0);
 setlocale(LC_ALL, 'de_DE');
 
 require_once __DIR__ . '/tollwerk/vendor/autoload.php';
+include __DIR__ . '/tollwerk/config/common.inc.php';
 
-include __DIR__ . '/tollwerk/my.pdf.tollwerk_common.php';
-
-// Ab hier: Entwicklermodus ;)
-
-
-// Im Blanko keine Bilder, Briefpapier und Fußzeilenblöcke ausgeben
-if ($booBlanko) {
-	$arrPDFConfig['use_stationery_pdf'] = false;
-	$arrPDFConfig['use_picture'] = false;
-	$arrPDFConfig['print_footer_blocks'] = false;
-}
-
-
-if (!class_exists('PDF_TEMPLATE_DEFAULT_INVOICE')) { // klasse nur beim ersten einbinden deklarieren
+if (!class_exists('PDF_TEMPLATE_DEFAULT_INVOICE')) {
 	require_once __DIR__ . '/tollwerk/fpdf/tfpdih.php';
 
 	class PDF_TEMPLATE_DEFAULT_INVOICE extends TFPDIH
