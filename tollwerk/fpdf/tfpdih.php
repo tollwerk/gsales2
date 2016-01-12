@@ -413,13 +413,13 @@ class TFPDIH extends TFPDI
 		}
 
 		if ($retString === false) {
-			$retString = utf8_decode(html_entity_decode($this->EuroReplace($string), ENT_QUOTES));
+			$retString = utf8_decode($this->EuroReplace($string), ENT_QUOTES);
 		}
 
 		$markdown = $this->PrepareMarkdown($retString);
 //			$withoutTags = strip_tags($markdown, '<b><strong><a><ul><ol><li>');
 		$withoutTags = strip_tags($markdown, '<b><strong><a>');
-		return trim($withoutTags);
+		return html_entity_decode(trim($withoutTags));
 	}
 
 	/**
