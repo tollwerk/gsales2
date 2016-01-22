@@ -400,7 +400,7 @@ class TFPDIH extends TFPDI
 	 * @param string $string Text
 	 * @return string Normalized text
 	 */
-	function PdfText($string)
+	public function PdfText($string)
 	{
 		$string = str_replace('&nbsp;', ' ', $string); // html_entity decode funktioniert nicht ... wieso?
 		$retString = false;
@@ -416,10 +416,24 @@ class TFPDIH extends TFPDI
 			$retString = utf8_decode($this->EuroReplace($string), ENT_QUOTES);
 		}
 
+		$retString = $this->replaceVariables($retString);
+
 		$markdown = $this->PrepareMarkdown($retString);
 //			$withoutTags = strip_tags($markdown, '<b><strong><a><ul><ol><li>');
 		$withoutTags = strip_tags($markdown, '<b><strong><a>');
 		return html_entity_decode(trim($withoutTags));
+	}
+
+	/**
+	 * Replace text variables
+	 *
+	 * @param string $str Text
+	 * @return string Text with replaced variables
+	 */
+	public function replaceVariables($str) {
+		return strtr($str, array(
+			'{DY}' => date('Y', mktime(0, 0, 0, date('m') + 11)),
+		));
 	}
 
 	/**
