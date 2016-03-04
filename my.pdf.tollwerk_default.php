@@ -71,8 +71,8 @@ if (!class_exists('PDF_TEMPLATE_DEFAULT')) {
 				$this->SetFont($this->pdfCfg['font'], '', $this->pdfCfg['font_size']);
 				$this->SetXY(0, $this->pdfCfg['startAtY']);
 				$this->Cell($this->pdfCfg['offsetX'] + $this->pdfCfg['fullwidth'], 0,
-					$this->PdfText($this->pdfCfg['label_city'] . ' ' . trim(strftime('%e. %B %Y',
-							strtotime($this->pdfData['base']['created'])))), 0, 0, 'R');
+					$this->PdfText($this->pdfCfg['label_city'] . ' ' . utf8_encode(trim(strftime('%e. %B %Y',
+							strtotime($this->pdfData['base']['created']))))), 0, 0, 'R');
 
 				$ys = $this->pdfCfg['startDocInfo'];
 			} else {
