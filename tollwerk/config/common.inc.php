@@ -1,7 +1,5 @@
 <?php
 
-$arrPDFConfig['use_stationery_pdf']			= $this->refCore->cfg->v('pdf_invoice_stationary');
-$arrPDFConfig['stationery_pdf_file']		= $this->refCore->cfg->v('path_absolute') . $this->refCore->cfg->v('pdf_invoice_stationary_file');
 $arrPDFConfig['print_minisender']			= $this->refCore->cfg->v('pdf_invoice_printminisender');
 $arrPDFConfig['font']						= 'GraublauSansProp';
 $arrPDFConfig['font_prop']					= 'GraublauSansProp';
@@ -28,9 +26,7 @@ $arrPDFConfig['currency']					= str_replace('€', chr(128), $arrPDFConfig['curr
 $var_array['base']['curr_symbol']			= str_replace('€', chr(128), $var_array['base']['curr_symbol']);
 $arrPDFConfig['displayDecimals']			= $this->refCore->cfg->v('decimalplaces_output');
 
-
 // Sonstige Einstellungen
-
 $arrPDFConfig['offsetX']					= 18; // linker Rand
 $arrPDFConfig['limitToY']					= 277; // Wann soll ein Seitenumbruch geschehen?
 $arrPDFConfig['startAtY']					= 110; // Ab welcher Position geht es nach einem Seitenumbruch auf der neuen Seite weiter?
@@ -53,7 +49,6 @@ $arrPDFConfig['label_pagecarry']			= $this->refCore->cfg->v('pdf_label_pagecarry
 
 // Absender (kann auch über die gSales Konfiguration beinflusst werden)
 $arrPDFConfig['company_sender']				= $this->refCore->cfg->v('me_company') . ' » ' . $this->refCore->cfg->v('me_address') . ' » ' . $this->refCore->cfg->v('me_zip') . ' ' . $this->refCore->cfg->v('me_city');
-
 
 // Labels
 $arrPDFConfig['label_invoice']				= $this->refCore->cfg->v('pdf_i_label_invoice');

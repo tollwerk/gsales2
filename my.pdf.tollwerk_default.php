@@ -20,7 +20,7 @@ require_once __DIR__ . '/tollwerk/fpdf/tfpdih.php';
 $locale = setlocale(LC_ALL, 0);
 setlocale(LC_ALL, 'de_DE');
 
-// Define the specifif FPDF class
+// Define the specific FPDF class
 if (!class_exists('PDF_TEMPLATE_DEFAULT')) {
 	/**
 	 * Class PDF_TEMPLATE_DEFAULT
@@ -89,6 +89,10 @@ if (!class_exists('PDF_TEMPLATE_DEFAULT')) {
 		}
 	}
 }
+
+// Specific configuration
+$arrPDFConfig['use_stationery_pdf']			= $this->refCore->cfg->v('pdf_invoice_stationary');
+$arrPDFConfig['stationery_pdf_file']		= $this->refCore->cfg->v('path_absolute') . $this->refCore->cfg->v('pdf_invoice_stationary_file');
 
 // Include configuration
 include __DIR__ . '/tollwerk/config/common.inc.php';
@@ -170,6 +174,8 @@ $posCounter = 0;
 $intTotalPosCounter = 0;
 $endY = 0;
 $pageCarrLineTotal = 0;
+$lastLineWasHeadline = false;
+
 foreach ($var_array['pos'] as $key => $value) {
 	$tmpY = $pdf->GetY();
 
@@ -182,7 +188,7 @@ foreach ($var_array['pos'] as $key => $value) {
 
 	// Pre-calculate line consumption
 	$intPosTxtWidth = 80; // TODO
-	if ($value['headline'] == 1 || $var_array['type'] == 'deliveries') {
+	if (($value['headline'] == 1) || ($var_array['type'] == 'deliveries')) {
 		$intPosTxtWidth = 160;
 	}
 	$lines = $pdf->WordWrap($pdf->PdfText($value['vars_pos_txt']), $intPosTxtWidth);
@@ -191,7 +197,10 @@ foreach ($var_array['pos'] as $key => $value) {
 	}
 
 	// Test for page breaks
-	if (($lines * 5) + $tmpY > $arrPDFConfig['limitToY'] && $posCounter != 0) {
+	if (($posCounter != 0) && (
+	    ((($lines * 4) + $tmpY) > $arrPDFConfig['limitToY']) ||
+        (($value['headline'] == 1) && !$lastLineWasHeadline))
+    ) {
 		$posCounter = 0;
 		$pdf->AddPage();
 		$tmpY = $arrPDFConfig['restartAtY'];
@@ -236,7 +245,7 @@ foreach ($var_array['pos'] as $key => $value) {
 
 		// Else: Regular item
 	} else {
-		$intTotalPosCounter++;
+		++$intTotalPosCounter;
 
 		if (false == isset($value['optional'])) {
 			$value['optional'] = '';
@@ -306,6 +315,8 @@ foreach ($var_array['pos'] as $key => $value) {
 			}
 		}
 	}
+
+	$lastLineWasHeadline = ($value['headline'] == 1);
 
 	++$posCounter;
 }

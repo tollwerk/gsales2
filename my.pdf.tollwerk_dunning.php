@@ -1,136 +1,102 @@
 <?php
 
-/**
- * 
- * Default gSales 2 PDF Dunning Template
- * Author: gSales Development Team - Gedankengut GbR Manuel Häuser & Gökhan Sirin
- * 
- * http://www.gsales.de
- * http://www.gedankengut.de
- * 
- * Copyright 2010 - Gedankengut GbR
- * 
- * Damit gSales Updates nicht die eigenen Änderungen überschreiben, sollte diese Datei kopiert (tpl.meinName.php) und dann auf die eigenen Bedürfnisse angepasst werden!
- * Die Weitergabe von modifizierten Rechnungstemplates an andere gSales Benutzer über unser Supportforum (http://forum.gsales.de) ist gestattet.
- * 
- */
+// Prevent template usage for standard routines
+if ($var_array['type'] != 'dunning'){
+	$this->refCore->setError('PDF Fehlgeschlagen! Das ausgewählte Template unterstützt nur die Generierung von Mahnungen!');
+	return false;
+}
+
+// Prevent generation of dunning without invoice
+if (!is_array($var_array['dunning']['invoicelist'])){
+	$this->refCore->setError('Keine Rechnungen vorhanden. pdf Datei für Mahnung konnte nicht erstellt werden.');
+	return false;
+}
+
+// Require autoloader & FPDF
+require_once __DIR__ . '/tollwerk/vendor/autoload.php';
+require_once __DIR__ . '/tollwerk/fpdf/tfpdih.php';
+
+// Set the locale for localized date output
+$locale = setlocale(LC_ALL, 0);
+setlocale(LC_ALL, 'de_DE');
+
+// Define the specific FPDF class
+if (!class_exists('PDF_TEMPLATE_DEFAULT_DUNNING')) {
+	/**
+	 * Class PDF_TEMPLATE_DEFAULT_DUNNING
+	 */
+	class PDF_TEMPLATE_DEFAULT_DUNNING extends TFPDIH
+	{
+		/**
+		 * Print the page header
+		 */
+		public function Header()
+		{
+			$this->IncludeTemplate();
+			$this->PrintDevelopmentGrid();
+
+			// Print recipient on the first page only
+			if ($this->PageNo() == 1) {
+
+				// Mini sender above recipient
+				if ($this->pdfCfg['print_minisender']) {
+					$this->SetXY($this->pdfCfg['offsetX'], 47);
+					$this->SetFont($this->pdfCfg['font'], 'I', $this->pdfCfg['font_size_tiny']);
+					$this->Cell(100, 0, $this->PdfText($this->pdfCfg['company_sender']));
+				}
+
+				// Recipient
+				$this->SetXY($this->pdfCfg['offsetX'], $this->pdfCfg['startDocInfo'] - 1);
+				$this->SetFont($this->pdfCfg['font'], '', $this->pdfCfg['font_size']);
+				$this->MultiCell(100, 5, $this->PdfText($this->pdfData['base']['recipient_txt']), 0, 'L');
 
 
-// PDF Datei als Briefpapier hinterlegen? (empfohlen)
+				// Document headline
+				$documentHeadlines = [
+					'invoices' => 'label_invoice',
+					'offers' => 'label_offer',
+					'refunds' => 'label_refund',
+					'sales' => 'label_sale',
+					'deliveries' => 'label_delivery',
+				];
+				$strHeadline = $this->pdfCfg[$documentHeadlines[$this->pdfData['type']]] . ' ' . $this->pdfData['base']['invoiceno'];
+				if ($this->pdfData['base']['status_id'] == 2 && $this->pdfData['type'] != 'offers') {
+					$strHeadline .= ' (' . $this->pdfCfg['label_canceled'] . ')';
+				}
+				$this->SetXY($this->pdfCfg['offsetX'], $this->pdfCfg['startAtY']);
+				$this->SetFont($this->pdfCfg['font'], 'B', $this->pdfCfg['font_size_big']);
+				$this->Cell(100, 0, $this->PdfText($strHeadline));
 
-	/*
-		Um das optimale Ergebnis zu erzielen lege Texte und wenn möglich dein Firmenlogo in der Vorlage als Vektoren an.
-		Dadurch erhälst du bei Zoomen eine gleichbleibende Qualität und die Dateigröße deiner Rechnungen bleibt schön klein was beim Versand per E-Mail
-		ein wichtiger Faktor ist.
-	*/
+				// Date
+				$this->SetFont($this->pdfCfg['font'], '', $this->pdfCfg['font_size']);
+				$this->SetXY(0, $this->pdfCfg['startAtY']);
+				$this->Cell($this->pdfCfg['offsetX'] + $this->pdfCfg['fullwidth'], 0,
+					$this->PdfText($this->pdfCfg['label_city'] . ' ' . utf8_encode(trim(strftime('%e. %B %Y',
+							strtotime($this->pdfData['base']['created']))))), 0, 0, 'R');
+
+				$ys = $this->pdfCfg['startDocInfo'];
+			} else {
+				$ys = $this->pdfCfg['restartDocInfo'];
+			}
+
+			// Document info block
+			if ($this->booOutputHeader) {
+				$this->DocInfo($ys, $this->pdfCfg['docInfoLineHeight']);
+			}
+
+			// Set initial vertical offset for body
+			$this->SetY($this->pdfCfg['startBodyAtY']);
+		}
+	}
+}
 
 $arrPDFConfig['use_stationery_pdf'] = $this->refCore->cfg->v('pdf_dunning_stationary');
 $arrPDFConfig['stationery_pdf_file'] = $this->refCore->cfg->v('path_absolute').$this->refCore->cfg->v('pdf_dunning_stationary_file'); # bitte pdf Datei entsprechend hochladen!
 
-
-// Mini Absender
-$arrPDFConfig['print_minisender'] = $this->refCore->cfg->v('pdf_dunning_printminisender');
-
-
-// Firmenlogo einbinden
-
-	/*
-		Achtung! Möglich sind folgende Dateiformate
-		- JPG Bilder (Graustufenbilder, Truecolor 24 Bit, CMYK 32 Bit)
-		- PNG Bilder (Graustufenbilder 8 Bit & 256 Graustufen, Farbpaletten, Truecolor 24 Bit)
-	*/
-
-$arrPDFConfig['use_picture'] = $this->refCore->cfg->v('pdf_dunning_picture');
-$arrPDFConfig['picture_file'] = $this->refCore->cfg->v('path_absolute').$this->refCore->cfg->v('pdf_dunning_picture_file'); # gSales Logo als Beispiel, bitte eigene Verwenden damit diese bei Updates nicht versehentlich überschrieben wird
-$arrPDFConfig['picture_width'] = $this->refCore->cfg->v('pdf_dunning_picture_width');
-$arrPDFConfig['picture_posX'] = $this->refCore->cfg->v('pdf_dunning_picture_posx');
-$arrPDFConfig['picture_posY'] = $this->refCore->cfg->v('pdf_dunning_picture_posy');	
-
-
-// Fußzeilenblöcke
-
-$arrPDFConfig['print_footer_blocks'] = $this->refCore->cfg->v('pdf_dunning_printfooter');
-
-
-// Fußzeilenblöcke Content (verwendet den Konfigurationsreiter "Meine Daten")
-
-if ($this->refCore->cfg->v('me_ustidnr') != '' && $this->refCore->cfg->v('me_taxno')){
-	$arrTaxFooter = array('headline'=>'Steuernummern', 'txt'=>'USt-IdNr. '.$this->refCore->cfg->v('me_ustidnr')."\nSt.-Nr. ".$this->refCore->cfg->v('me_taxno'));	
-} else {
-	if ($this->refCore->cfg->v('me_ustidnr') != '') $arrTaxFooter = array('headline'=>'USt-IdNr.', 'txt'=>$this->refCore->cfg->v('me_ustidnr'));		
-	else $arrTaxFooter = array('headline'=>'Steuernummer', 'txt'=>$this->refCore->cfg->v('me_taxno'));		
-}
-
-$arrContactFooter = array('headline'=>'Anschrift', 		'txt'=>$this->refCore->cfg->v('me_company')."\n".$this->refCore->cfg->v('me_address')."\n".$this->refCore->cfg->v('me_countrycode').$this->refCore->cfg->v('me_zip').' '.$this->refCore->cfg->v('me_city'));	
-if ($this->refCore->cfg->v('me_owner') != '' || $this->refCore->cfg->v('me_manager') != '') $arrContactFooter['txt'] .= "\n";
-if ($this->refCore->cfg->v('me_owner') != '') $arrContactFooter['txt'] .= "\n".'Inh. '.$this->refCore->cfg->v('me_owner');
-if ($this->refCore->cfg->v('me_manager') != '') $arrContactFooter['txt'] .= "\n".'GF '.$this->refCore->cfg->v('me_manager');
-
-$arrBankFooter = array('headline'=>'Bankverbindung', 'txt'=>'');
-if ($this->refCore->cfg->v('me_bank') != '') $arrBankFooter['txt'] .= $this->refCore->cfg->v('me_bank')."\n";
-if ($this->refCore->cfg->v('me_bankaccount') != '') $arrBankFooter['txt'] .= 'Konto '.$this->refCore->cfg->v('me_bankaccount')."\n";
-if ($this->refCore->cfg->v('me_bankcode') != '') $arrBankFooter['txt'] .= 'BLZ '.$this->refCore->cfg->v('me_bankcode')."\n";
-if ($this->refCore->cfg->v('me_bankiban') != '') $arrBankFooter['txt'] .= 'IBAN '.$this->refCore->cfg->v('me_bankiban')."\n";
-if ($this->refCore->cfg->v('me_bankbic') != '') $arrBankFooter['txt'] .= 'BIC '.$this->refCore->cfg->v('me_bankbic')."\n";
-
-// footer im gSales 1 stil = textfelder aus konfiguration
-
-$arrPDFConfig['footer_head_1'] = $this->refCore->cfg->v('pdf_footer_headline_1');
-$arrPDFConfig['footer_1'] = $this->refCore->cfg->v('pdf_footer_1');
-$arrPDFConfig['footer_head_2'] = $this->refCore->cfg->v('pdf_footer_headline_2');
-$arrPDFConfig['footer_2'] = $this->refCore->cfg->v('pdf_footer_2');
-$arrPDFConfig['footer_head_3'] = $this->refCore->cfg->v('pdf_footer_headline_3');
-$arrPDFConfig['footer_3'] = $this->refCore->cfg->v('pdf_footer_3');
-$arrPDFConfig['footer_head_4'] = $this->refCore->cfg->v('pdf_footer_headline_4');
-$arrPDFConfig['footer_4'] = $this->refCore->cfg->v('pdf_footer_4');
-
-// footer aus "meine daten"
-
-$arrPDFConfig['arrFooter'] = array(
-	$arrContactFooter,
-	array('headline'=>'Kontakt', 		'txt'=>"Tel. ".$this->refCore->cfg->v('me_phone')."\nFax ".$this->refCore->cfg->v('me_fax')."\n".$this->refCore->cfg->v('me_mail')."\n".$this->refCore->cfg->v('me_web')),
-	$arrTaxFooter,
-	$arrBankFooter
-);
-
-
-// Schrift definieren
-
-$arrPDFConfig['font'] = 'Arial';
-$arrPDFConfig['font_size_tiny'] = 6; // Verwendung in Mini-Absender
-$arrPDFConfig['font_size_small'] = 8;  // Verwendung in Überschriften der Positionstabelle & Fußzeilenblöcken
-$arrPDFConfig['font_size_big'] = 14; // Verwendung in Dokumenten-Headline
-$arrPDFConfig['font_size'] = 10; // Standardgröße für alles weitere
-
-
-// Währungseinstellungen
-
-$arrPDFConfig['currency'] = $this->refCore->cfg->v('currency_symbol');
-
-$arrPDFConfig['currency_space'] = '';
-if ($this->refCore->cfg->v('currency_symbol_spacing') == true) $arrPDFConfig['currency_space'] = ' ';
-
-$arrPDFConfig['currency_pre'] = false;
-if ($this->refCore->cfg->v('currency_symbol_before_number') == true) $arrPDFConfig['currency_pre'] = true;
-
-if (trim($arrPDFConfig['currency'] == '€')) $arrPDFConfig['currency'] = chr(128); // € Symbol fix
-
-
-// Sonstige Einstellungen
-
-$arrPDFConfig['offsetX'] = 20; // linker Rand
-$arrPDFConfig['limitToY'] = 265; // Wann soll ein Seitenumbruch geschehen?
-//$arrPDFConfig['restartAtY'] = 105; // Ab welcher Position geht es nach einem Seitenumbruch auf der neuen Seite weiter?
-$arrPDFConfig['restartAtY'] = 78; // Ab welcher Position geht es nach einem Seitenumbruch auf der neuen Seite weiter?
-$arrPDFConfig['alternateBg'] = $this->refCore->cfg->v('pdf_alternate_bg'); // Alternierender Hintergrund
-
-// Absender (kann auch über die gSales Konfiguration beinflusst werden)
-
-$arrPDFConfig['company_sender'] = $this->refCore->cfg->v('me_company').' - '.$this->refCore->cfg->v('me_address').' - '.trim($this->refCore->cfg->v('me_countrycode').' '.$this->refCore->cfg->v('me_zip')).' '.$this->refCore->cfg->v('me_city');
-
+// Include configuration
+include __DIR__ . '/tollwerk/config/common.inc.php';
 
 // Labels
-
 $arrPDFConfig['label_1_step'] = $this->refCore->cfg->v('pdf_d_label_1_step');
 $arrPDFConfig['label_2_step'] = $this->refCore->cfg->v('pdf_d_label_2_step');
 $arrPDFConfig['label_3_step'] = $this->refCore->cfg->v('pdf_d_label_3_step');
@@ -144,30 +110,9 @@ $arrPDFConfig['label_invoicetopay'] = $this->refCore->cfg->v('pdf_d_label_invoic
 $arrPDFConfig['label_subtotal'] = $this->refCore->cfg->v('pdf_d_label_subtotal');
 $arrPDFConfig['label_total'] = $this->refCore->cfg->v('pdf_d_label_total');
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Ab hier: Entwicklermodus ;)
-
-
-
+if (!defined('FPDF_FONTPATH')) {
+	define(FPDF_FONTPATH, dirname(__DIR__).'/fpdf/font/');
+}
 
 // Im Blanko keine Bilder, Briefpapier und Fußzeilenblöcke ausgeben
 if ($booBlanko){
@@ -175,8 +120,6 @@ if ($booBlanko){
 	$arrPDFConfig['use_picture'] = false;
 	$arrPDFConfig['print_footer_blocks'] = false;
 }
-
-
 
 
 if (!class_exists('PDF_TEMPLATE_DEFAULT_DUNNING')){ // klasse nur beim ersten einbinden deklarieren
@@ -414,57 +357,67 @@ if (!class_exists('PDF_TEMPLATE_DEFAULT_DUNNING')){ // klasse nur beim ersten ei
 	}
 
 }
-	
 
-	
-	
-	
-// Fremdnutzung des Templates verhindern!
+// Create and configure FPDF instance
+$pdf = new PDF_TEMPLATE_DEFAULT_DUNNING('P', 'mm', 'A4');
+include __DIR__ . '/tollwerk/config/pdf.inc.php';
 
-if ($var_array['type'] != 'dunning'){
-	$this->refCore->setError('PDF Fehlgeschlagen! Das ausgewählte Template unterstützt nur die Generierung von Mahnungen!');
-	return false;
-}
-	
-
-$pdf = new PDF_TEMPLATE_DEFAULT_DUNNING('P', 'mm', 'A4'); 
-$pdf->SetAutoPageBreak(true);
-$pdf->booOutputHeader = true;
-
-
-$pdf->passConfiguration($arrPDFConfig);
-$pdf->passGSalesData($var_array);
-
+/**********************************************************************
+ * Start output
+ *********************************************************************/
 $pdf->AddPage();
-
-$pdf->SetXY($arrPDFConfig['offsetX'],100);
+$pdf->SetXY($arrPDFConfig['offsetX'], $arrPDFConfig['startBodyAtY']);
 $tmpY = $pdf->GetY();
 
+/**********************************************************************
+ * Salutation
+ *********************************************************************/
+if ($var_array['base']['customer_title'] === 'Frau') {
+	$salutation = sprintf($arrPDFConfig['label_salutation_female'], $var_array['base']['customer_lastname']);
+} elseif (!strncmp($var_array['base']['customer_title'], 'Herr', 4)) {
+	$salutation = sprintf($arrPDFConfig['label_salutation_male'], $var_array['base']['customer_lastname']);
+} else {
+	$salutation = $arrPDFConfig['label_salutation'];
+}
+$pdf->SetXY($arrPDFConfig['offsetX'], $tmpY);
+$pdf->SetFont($arrPDFConfig['font'], '', $arrPDFConfig['font_size']);
+$pdf->Cell(150, '', $pdf->PdfText($salutation), 0);
+$tmpY = $pdf->GetY() + $arrPDFConfig['paragraphSpace'];
 
-// Einleitungstext
-
-if ($var_array['dunning']['var_txt_intro'] != ''){
-
-	$pdf->SetXY($arrPDFConfig['offsetX'],$tmpY);
-	$pdf->SetFont($arrPDFConfig['font'], '', $arrPDFConfig['font_size'] );
-	$pdf->MultiCell(170, 5, $pdf->pdfText($var_array['dunning']['var_txt_intro']),0,'L');
-	
-	$tmpY = $pdf->GetY()+3;
+/**********************************************************************
+ * Introduction
+ *********************************************************************/
+if ($var_array['dunning']['var_txt_intro'] != '') {
+	$pdf->SetXY($arrPDFConfig['offsetX'], $tmpY);
+	$pdf->SetFont($arrPDFConfig['font'], '', $arrPDFConfig['font_size']);
+	$pdf->MultiCell($arrPDFConfig['fullwidth'], 5, $pdf->PdfText($var_array['dunning']['var_txt_intro']), 0, 'L');
+	$tmpY = $pdf->GetY() + $arrPDFConfig['paragraphSpace'];
 }
 
-// Positionstabelle (Headlines)
-
-$pdf->posTableHeadlines($tmpY+5);
-
-
-// Mahnung ohne Rechnungen => Aussteigen
-if (!is_array($var_array['dunning']['invoicelist'])){
-	$this->refCore->setError('Keine Rechnungen vorhanden. pdf Datei für Mahnung konnte nicht erstellt werden.');
-	return false;		
+/**********************************************************************
+ * Pre-register discount
+ *********************************************************************/
+$booHasDiscountedItems = false;
+foreach ($var_array['pos'] as $key => $value) {
+	if ($value['discount'] > 0) {
+		$booHasDiscountedItems = true;
+		break;
+	}
 }
+unset($key, $value);
+$booShowDiscountCol = true;
+if ($booHasDiscountedItems == false && $arrPDFConfig['hideDiscount']) {
+	$booShowDiscountCol = false;
+}
+
+/**********************************************************************
+ * Item table headers
+ *********************************************************************/
+$pdf->PositionTableHeadlines($tmpY + $arrPDFConfig['paragraphSpace'], $booShowDiscountCol);
+
+
 
 $posCounter=0;
-
 foreach ($var_array['dunning']['invoicelist'] as $key => $value){
 	
 	$tmpY = $pdf->GetY();
