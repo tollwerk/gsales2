@@ -182,11 +182,14 @@ class TFPDIH extends TFPDI
 			}
 		}
 
+		// Wenn es eine explizit überschriebene Dokumentbezeichnung gibt
+        $customDoctype = (trim($this->pdfData['base']['custom3']) != '');
+
 		// Dokumenttypabhängige Zeilen
 		if ($this->pdfData['type'] == 'invoices') {
 
 			// Rechnungs-Nr. Zeile
-			$this->HeaderLine('label_invoiceno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+			$this->HeaderLine($customDoctype ? 'label_docno' : 'label_invoiceno', $this->pdfData['base']['invoiceno'], $ys, $lh);
 
 			if ($this->PageNo() == 1) {
 
@@ -200,22 +203,22 @@ class TFPDIH extends TFPDI
 
 		// Angebots-Nr. Zeile
 		if ($this->pdfData['type'] == 'offers') {
-			$this->HeaderLine('label_offerno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+			$this->HeaderLine($customDoctype ? 'label_docno' : 'label_offerno', $this->pdfData['base']['invoiceno'], $ys, $lh);
 		}
 
 		// Lieferschein-Nr. Zeile
 		if ($this->pdfData['type'] == 'deliveries') {
-			$this->HeaderLine('label_deliveryno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+			$this->HeaderLine($customDoctype ? 'label_docno' : 'label_deliveryno', $this->pdfData['base']['invoiceno'], $ys, $lh);
 		}
 
 		// Auftrags-Nr. Zeile
 		if ($this->pdfData['type'] == 'sales') {
-			$this->HeaderLine('label_saleno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+			$this->HeaderLine($customDoctype ? 'label_docno' : 'label_saleno', $this->pdfData['base']['invoiceno'], $ys, $lh);
 		}
 
 		// Gutschrifts-Nr. Zeile
 		if ($this->pdfData['type'] == 'refunds') {
-			$this->HeaderLine('label_refundno', $this->pdfData['base']['invoiceno'], $ys, $lh);
+			$this->HeaderLine($customDoctype ? 'label_docno' : 'label_refundno', $this->pdfData['base']['invoiceno'], $ys, $lh);
 		}
 
 		// Autor
@@ -337,7 +340,6 @@ class TFPDIH extends TFPDI
 	 */
 	public function GetFormatedStandardCurrency($value, $booDisplayMoreDecimals = false)
 	{
-
 		$intDisplayDecimals = 2;
 		if ($booDisplayMoreDecimals) {
 			$intDisplayDecimals = $this->pdfCfg['displayDecimals'];

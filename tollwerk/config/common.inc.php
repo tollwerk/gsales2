@@ -64,6 +64,7 @@ $arrPDFConfig['label_invoiceno']			= $this->refCore->cfg->v('pdf_i_label_invoice
 $arrPDFConfig['label_deliverydate']			= $this->refCore->cfg->v('pdf_i_label_deliverydate');
 $arrPDFConfig['label_offerno']				= $this->refCore->cfg->v('pdf_i_label_offerno');
 $arrPDFConfig['label_refundno']				= $this->refCore->cfg->v('pdf_i_label_refundno');
+$arrPDFConfig['label_docno']				= 'Dokument-Nr.';
 $arrPDFConfig['label_sale']					= $this->refCore->cfg->v('pdf_i_label_sale');
 $arrPDFConfig['label_saleno']				= $this->refCore->cfg->v('pdf_i_label_saleno');
 $arrPDFConfig['label_delivery']				= $this->refCore->cfg->v('pdf_i_label_delivery');
