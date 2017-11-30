@@ -124,10 +124,10 @@ if ($var_array['base']['status_id'] == 2 && $var_array['type'] == 'invoices') {
 /**********************************************************************
  * Salutation
  *********************************************************************/
-if ($var_array['base']['customer_title'] === 'Frau') {
-    $salutation = sprintf($arrPDFConfig['label_salutation_female'], $var_array['base']['customer_lastname']);
+if (!strncmp($var_array['base']['customer_title'], 'Frau', 4)) {
+    $salutation = sprintf($arrPDFConfig['label_salutation_female'], $var_array['base']['customer_title'], $var_array['base']['customer_lastname']);
 } elseif (!strncmp($var_array['base']['customer_title'], 'Herr', 4)) {
-    $salutation = sprintf($arrPDFConfig['label_salutation_male'], $var_array['base']['customer_lastname']);
+    $salutation = sprintf($arrPDFConfig['label_salutation_male'], $var_array['base']['customer_title'], $var_array['base']['customer_lastname']);
 } else {
     $salutation = $arrPDFConfig['label_salutation'];
 }
