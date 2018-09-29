@@ -310,9 +310,7 @@ foreach ($var_array['pos'] as $key => $value) {
         $pdf->SetFont($arrPDFConfig['font'], '', $arrPDFConfig['font_size']);
         $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_pos_width'] + $arrPDFConfig['column_amount_width'],
             $tmpY - 2.5);
-        $GLOBALS['DEBUG'] = true;
         $pdf->MultiCellTag($intStrWidth, 5, $pdf->PdfText($value['vars_pos_txt']), 0, 'L');
-        unset($GLOBALS['DEBUG']);
         $endY = $pdf->GetY();
 
         // Calculate carry-over total
