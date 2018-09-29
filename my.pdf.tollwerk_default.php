@@ -3,12 +3,14 @@
 // Prevent template usage for dunning routines
 if (!in_array($var_array['type'], ['invoices', 'offers', 'refunds', 'sales', 'deliveries'])) {
     $this->refCore->setError('PDF Fehlgeschlagen! Das ausgewählte Template unterstützt nur die Generierung von Angeboten, Rechnungen, Gutschriften, Auftragsbestätigungen und Lieferscheine!');
+
     return false;
 }
 
 // Cancel if document has no positions
 if (false == is_array($var_array['pos'])) {
     $this->refCore->setError('Keine Positionen vorhanden. pdf Datei konnte nicht erstellt werden.');
+
     return false;
 }
 
@@ -52,13 +54,13 @@ if (!class_exists('PDF_TEMPLATE_DEFAULT')) {
 
                 // Document headline
                 $documentHeadlines = [
-                    'invoices' => 'label_invoice',
-                    'offers' => 'label_offer',
-                    'refunds' => 'label_refund',
-                    'sales' => 'label_sale',
+                    'invoices'   => 'label_invoice',
+                    'offers'     => 'label_offer',
+                    'refunds'    => 'label_refund',
+                    'sales'      => 'label_sale',
                     'deliveries' => 'label_delivery',
                 ];
-                $strHeadline = (trim($this->pdfData['base']['custom3']) ?: $this->pdfCfg[$documentHeadlines[$this->pdfData['type']]]).' '.$this->pdfData['base']['invoiceno'];
+                $strHeadline       = (trim($this->pdfData['base']['custom3']) ?: $this->pdfCfg[$documentHeadlines[$this->pdfData['type']]]).' '.$this->pdfData['base']['invoiceno'];
                 if ($this->pdfData['base']['status_id'] == 2 && $this->pdfData['type'] != 'offers') {
                     $strHeadline .= ' ('.$this->pdfCfg['label_canceled'].')';
                 }
@@ -90,7 +92,7 @@ if (!class_exists('PDF_TEMPLATE_DEFAULT')) {
 }
 
 // Specific configuration
-$arrPDFConfig['use_stationery_pdf'] = $this->refCore->cfg->v('pdf_invoice_stationary');
+$arrPDFConfig['use_stationery_pdf']  = $this->refCore->cfg->v('pdf_invoice_stationary');
 $arrPDFConfig['stationery_pdf_file'] = $this->refCore->cfg->v('path_absolute').$this->refCore->cfg->v('pdf_invoice_stationary_file');
 
 // Include configuration
@@ -125,15 +127,17 @@ if ($var_array['base']['status_id'] == 2 && $var_array['type'] == 'invoices') {
  * Salutation
  *********************************************************************/
 if (!strncmp($var_array['base']['customer_title'], 'Frau', 4)) {
-    $salutation = sprintf($arrPDFConfig['label_salutation_female'], $var_array['base']['customer_title'], $var_array['base']['customer_lastname']);
+    $salutation = sprintf($arrPDFConfig['label_salutation_female'], $var_array['base']['customer_title'],
+        $var_array['base']['customer_lastname']);
 } elseif (!strncmp($var_array['base']['customer_title'], 'Herr', 4)) {
-    $salutation = sprintf($arrPDFConfig['label_salutation_male'], $var_array['base']['customer_title'], $var_array['base']['customer_lastname']);
+    $salutation = sprintf($arrPDFConfig['label_salutation_male'], $var_array['base']['customer_title'],
+        $var_array['base']['customer_lastname']);
 } else {
     $salutation = $arrPDFConfig['label_salutation'];
 }
 $pdf->SetXY($arrPDFConfig['offsetX'], $tmpY);
 $pdf->SetFont($arrPDFConfig['font'], '', $arrPDFConfig['font_size']);
-$pdf->Cell(150, '', $pdf->PdfText($salutation), 0);
+$pdf->Cell(150, 0, $pdf->PdfText($salutation), 0);
 $tmpY = $pdf->GetY() + $arrPDFConfig['paragraphSpace'];
 
 /**********************************************************************
@@ -170,12 +174,13 @@ $pdf->PositionTableHeadlines($tmpY + $arrPDFConfig['paragraphSpace'], $booShowDi
 /**********************************************************************
  * Item table
  *********************************************************************/
-$posCounter = 0;
-$intTotalPosCounter = 0;
-$endY = 0;
-$pageCarrLineTotal = 0;
+$posCounter          = 0;
+$intTotalPosCounter  = 0;
+$endY                = 0;
+$pageCarrLineTotal   = 0;
 $lastLineWasHeadline = false;
 
+// Run through all items
 foreach ($var_array['pos'] as $key => $value) {
     $tmpY = $pdf->GetY();
 
@@ -191,6 +196,7 @@ foreach ($var_array['pos'] as $key => $value) {
     if (($value['headline'] == 1) || ($var_array['type'] == 'deliveries')) {
         $intPosTxtWidth = 160;
     }
+
     $lines = $pdf->WordWrap($pdf->PdfText($value['vars_pos_txt']), $intPosTxtWidth);
     if ($value['headline'] == 1) {
         ++$lines;
@@ -282,7 +288,7 @@ foreach ($var_array['pos'] as $key => $value) {
             if ($value['optional'] == 1) {
                 $out = '('.$out.')';
             }
-            $pdf->Cell($arrPDFConfig['column_price_width'], '', $out, 0, 0, 'R');
+            $pdf->Cell($arrPDFConfig['column_price_width'], 0, $out, 0, 0, 'R');
 
             // Total
             $pdf->SetFont($arrPDFConfig['font_mono'], '', $arrPDFConfig['font_size']);
@@ -293,7 +299,7 @@ foreach ($var_array['pos'] as $key => $value) {
             if ($value['optional'] == 1) {
                 $out = '('.$out.')';
             }
-            $pdf->Cell($arrPDFConfig['column_price_width'], '', $out, 0, 0, 'R');
+            $pdf->Cell($arrPDFConfig['column_price_width'], 0, $out, 0, 0, 'R');
         }
 
         // Item text (increase width for delivery notes)
@@ -304,7 +310,9 @@ foreach ($var_array['pos'] as $key => $value) {
         $pdf->SetFont($arrPDFConfig['font'], '', $arrPDFConfig['font_size']);
         $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_pos_width'] + $arrPDFConfig['column_amount_width'],
             $tmpY - 2.5);
+        $GLOBALS['DEBUG'] = true;
         $pdf->MultiCellTag($intStrWidth, 5, $pdf->PdfText($value['vars_pos_txt']), 0, 'L');
+        unset($GLOBALS['DEBUG']);
         $endY = $pdf->GetY();
 
         // Calculate carry-over total
@@ -382,13 +390,13 @@ if ($var_array['type'] != 'deliveries') {
         $txtTax = '';
         if (is_array($var_array['summ']['taxes'])) {
             if (count($var_array['summ']['taxes']) > 1) {
-                $txtTax = ' (beinhaltet ';
+                $txtTax      = ' (beinhaltet ';
                 $booFirstRun = true;
                 foreach ($var_array['summ']['taxes'] as $keyTax => $valueTax) {
                     if (false == $booFirstRun) {
                         $txtTax .= '; ';
                     }
-                    $txtTax .= ($var_array['base']['curr_id'] == 0) ? $pdf->GetFormatedStandardCurrency($valueTax['rounded_std']).' aus '.gsFloat($keyTax).'%' : $pdf->GetFormatedForeignCurrency($valueTax['rounded_curr'],
+                    $txtTax      .= ($var_array['base']['curr_id'] == 0) ? $pdf->GetFormatedStandardCurrency($valueTax['rounded_std']).' aus '.gsFloat($keyTax).'%' : $pdf->GetFormatedForeignCurrency($valueTax['rounded_curr'],
                             $var_array['base']).' aus '.gsFloat($keyTax).'%';
                     $booFirstRun = false;
                 }
@@ -486,9 +494,10 @@ switch ($var_array['type']) {
 $pdf->SetAutoPageBreak(false);
 $intLastPage = $pdf->PageNo();
 for ($i = 1; $i <= $intLastPage; $i++) {
+    $countYPos = ($i > 1) ? $pdf->followingPageCountYPos : $pdf->firstPageCountYPos;
     $pdf->page = $i;
     $pdf->HeaderLine('label_page', $pdf->PdfText(sprintf($arrPDFConfig['label_pages'], $i, $intLastPage)),
-        ($i > 1) ? $pdf->followingPageCountYPos : $pdf->firstPageCountYPos, $arrPDFConfig['docInfoLineHeight']);
+        $countYPos, $arrPDFConfig['docInfoLineHeight']);
     $pdf->page = $intLastPage;
 }
 
