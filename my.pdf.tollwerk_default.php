@@ -149,6 +149,11 @@ if ($var_array['base']['vars_i_pre_txt'] != '') {
     $pdf->MultiCellTag($arrPDFConfig['fullwidth'], 5, $pdf->PdfText($var_array['base']['vars_i_pre_txt']), 0, 'L');
     $tmpY = $pdf->GetY() + $arrPDFConfig['paragraphSpace'];
 }
+// If items should start on the second page
+if (!empty($var_array['base']['custom4'])) {
+    $pdf->AddPage();
+    $tmpY = $arrPDFConfig['restartAtY'];
+}
 
 /**********************************************************************
  * Pre-register discount
@@ -264,42 +269,47 @@ foreach ($var_array['pos'] as $key => $value) {
             $pdf->Cell($arrPDFConfig['column_pos_width'] - 1, 0, $pdf->PdfText($intTotalPosCounter), 0, 0, 'L');
         }
 
-        // Amount & unit
-        $pdf->SetFont($arrPDFConfig['font'], '', $arrPDFConfig['font_size']);
-        $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_pos_width'], $tmpY);
-        $pdf->Cell($arrPDFConfig['column_amount_width'], 0,
-            $pdf->PdfText(gsFloat($value['quantity']).' '.$value['unit']), 0, 0, 'C');
+        // Skip quantity, unit and prices if quantity is zero
+        if ($value['quantity']) {
 
-        // If it's not a delivery note
-        if ($var_array['type'] != 'deliveries') {
+            // Amount & unit
+            $pdf->SetFont($arrPDFConfig['font'], '', $arrPDFConfig['font_size']);
+            $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_pos_width'], $tmpY);
+            $pdf->Cell($arrPDFConfig['column_amount_width'], 0,
+                $pdf->PdfText(gsFloat($value['quantity']).' '.$value['unit']), 0, 0, 'C');
 
-            // Discount
-            if ($value['discount'] > 0) { // TODO
-                $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_discount_offset'], $tmpY);
-                $pdf->Cell($arrPDFConfig['column_discount_width'], 0, $pdf->PdfText(gsFloat($value['discount']).'%'),
-                    0, 0, 'R');
+            // If it's not a delivery note
+            if ($var_array['type'] != 'deliveries') {
+
+                // Discount
+                if ($value['discount'] > 0) { // TODO
+                    $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_discount_offset'], $tmpY);
+                    $pdf->Cell($arrPDFConfig['column_discount_width'], 0,
+                        $pdf->PdfText(gsFloat($value['discount']).'%'),
+                        0, 0, 'R');
+                }
+
+                // Unit price
+                $pdf->SetFont($arrPDFConfig['font_mono'], '', $arrPDFConfig['font_size']);
+                $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_unit_offset'], $tmpY);
+                $out = ($var_array['base']['curr_id'] == 0) ? $pdf->GetFormatedStandardCurrency($value['price'],
+                    true) : $pdf->GetFormatedForeignCurrency($value['curr_price'], $var_array['base'], true);
+                if ($value['optional'] == 1) {
+                    $out = '('.$out.')';
+                }
+                $pdf->Cell($arrPDFConfig['column_price_width'], 0, $out, 0, 0, 'R');
+
+                // Total
+                $pdf->SetFont($arrPDFConfig['font_mono'], '', $arrPDFConfig['font_size']);
+                $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_unit_offset'] + $arrPDFConfig['column_price_width'] + $arrPDFConfig['column_price_gap'],
+                    $tmpY);
+                $out = ($var_array['base']['curr_id'] == 0) ? $pdf->GetFormatedStandardCurrency($value['tprice']) : $pdf->GetFormatedForeignCurrency($value['rounded_curr_tprice'],
+                    $var_array['base']);
+                if ($value['optional'] == 1) {
+                    $out = '('.$out.')';
+                }
+                $pdf->Cell($arrPDFConfig['column_price_width'], 0, $out, 0, 0, 'R');
             }
-
-            // Unit price
-            $pdf->SetFont($arrPDFConfig['font_mono'], '', $arrPDFConfig['font_size']);
-            $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_unit_offset'], $tmpY);
-            $out = ($var_array['base']['curr_id'] == 0) ? $pdf->GetFormatedStandardCurrency($value['price'],
-                true) : $pdf->GetFormatedForeignCurrency($value['curr_price'], $var_array['base'], true);
-            if ($value['optional'] == 1) {
-                $out = '('.$out.')';
-            }
-            $pdf->Cell($arrPDFConfig['column_price_width'], 0, $out, 0, 0, 'R');
-
-            // Total
-            $pdf->SetFont($arrPDFConfig['font_mono'], '', $arrPDFConfig['font_size']);
-            $pdf->setXY($arrPDFConfig['offsetX'] + $arrPDFConfig['column_unit_offset'] + $arrPDFConfig['column_price_width'] + $arrPDFConfig['column_price_gap'],
-                $tmpY);
-            $out = ($var_array['base']['curr_id'] == 0) ? $pdf->GetFormatedStandardCurrency($value['tprice']) : $pdf->GetFormatedForeignCurrency($value['rounded_curr_tprice'],
-                $var_array['base']);
-            if ($value['optional'] == 1) {
-                $out = '('.$out.')';
-            }
-            $pdf->Cell($arrPDFConfig['column_price_width'], 0, $out, 0, 0, 'R');
         }
 
         // Item text (increase width for delivery notes)
@@ -476,7 +486,7 @@ switch ($var_array['type']) {
         $pdf->Cell(100, 0, $pdf->PdfText($arrPDFConfig['label_ordersignature']));
 
         // Terms & conditions
-        $pdf->CopyPages($arrPDFConfig['stationery_pdf_file'], $booBlanko ? 6 : 2, $booBlanko ? 9 : 5);
+        $pdf->CopyPages($arrPDFConfig['stationery_pdf_file'], $booBlanko ? 4 : 2, $booBlanko ? 5 : 3);
         break;
 
     // Default
